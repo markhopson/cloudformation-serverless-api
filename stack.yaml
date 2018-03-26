@@ -1,0 +1,172 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: API Gateway, Lambda, and Dynamo.
+
+Resources:
+  # Policy required for all lambda function roles.
+  BaseLambdaExecutionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Base permissions needed by all lambda functions.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DeleteNetworkInterface
+            Resource: "*"
+
+  HelloTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+
+  # FIXME How to hook up custom domain?
+  MyApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${AWS::StackName}-MyApiGateway"
+      Description: A description
+      FailOnWarnings: true
+      Body:
+        swagger: 2.0
+        info:
+          description: |
+            The account API.
+          version: 1.0
+        basePath: /
+        schemes:
+          - https
+        consumes:
+          - application/json
+        produces:
+          - application/json
+        paths:
+          /users/{userId}/hello:
+            get:
+              description: TBD
+              x-amazon-apigateway-integration:
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HelloLambda.Arn}/invocations"
+                credentials: !GetAtt MyApiGatewayRole.Arn
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+              operationId: getHello
+              parameters:
+                - name: userId
+                  in: path
+                  description: TBD
+                  required: true
+                  type: string
+                  format: uuid
+            post:
+              description: TBD
+              x-amazon-apigateway-integration:
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HelloLambda.Arn}/invocations"
+                credentials: !GetAtt MyApiGatewayRole.Arn
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+              operationId: postHello
+              parameters:
+                - name: userId
+                  in: path
+                  description: TBD
+                  required: true
+                  type: string
+                  format: uuid
+                - name: body
+                  in: body
+                  description: TBD
+                  required: true
+                  schema:
+                    type: object
+                    required:
+                    - email
+                    properties:
+                      email:
+                        type: string
+
+  MyApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref MyApiGateway
+      StageName: prod
+
+  MyApiGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt HelloLambda.Arn
+
+  HelloLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Role: !GetAtt HelloLambdaRole.Arn  # TODO
+      Handler: index.handleHttpRequest
+      Runtime: nodejs6.10
+      Environment:
+        Variables:
+          HELLO_DB: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${HelloTable}"
+      Code:
+        ZipFile: |
+          exports.handlers = function(event, context) {}
+
+  HelloLambdaRole:  # -> AppAPIRole
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref BaseLambdaExecutionPolicy
+      Policies:
+        - PolicyName: getHello
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${HelloTable}"
+        - PolicyName: putHello
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${HelloTable}"
