@@ -1,15 +1,10 @@
 # cloudformation-serverless-api
 
-This Github repo contains the material needed for this:
+This Github repo contains the material needed for this tutorial:
+
 https://medium.com/@markhopson/how-to-create-a-serverless-restful-api-with-nodejs-and-aws-9aab63c636db
 
 A simple, RESTful API using AWS Serverless (Cloudformation, API Gateway, Lambda, and DynamoDB).
-
-An introduction to the technologies
-* Cloudformation
-* API Gateway
-* Lambda
-* DynamoDB
 
 # Overview
 
