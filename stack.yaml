@@ -133,7 +133,7 @@ Resources:
     Properties:
       Role: !GetAtt HelloLambdaRole.Arn  # TODO
       Handler: index.handleHttpRequest
-      Runtime: nodejs6.10
+      Runtime: nodejs12.x
       Environment:
         Variables:
           HELLO_DB: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${HelloTable}"

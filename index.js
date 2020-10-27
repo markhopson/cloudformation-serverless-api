@@ -32,9 +32,14 @@ exports.handleHttpRequest = function(request, context, done) {
           if (err) {
             console.log("Error", err);
             throw `Dynamo Get Error (${err})`
-          } else {
+          } else if (data.Item) {
             console.log("Success", data.Item.email);
             response.body = JSON.stringify(data.Item.email);
+            done(null, response);
+          } else {
+            console.log("Not found id=", userId);
+            response.body = "Not found"
+            response.statusCode = 404
             done(null, response);
           }
         });
