@@ -34,7 +34,7 @@ exports.handleHttpRequest = function(request, context, done) {
             throw `Dynamo Get Error (${err})`
           } else if (data.Item) {
             console.log("Success", data.Item.email);
-            response.body = JSON.stringify(data.Item.email);
+            response.body = JSON.stringify({ "email": data.Item.email.S });
             done(null, response);
           } else {
             console.log("Not found id=", userId);
